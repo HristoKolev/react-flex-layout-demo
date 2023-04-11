@@ -54,6 +54,7 @@ const modelJson: IJsonModel = {
   global: {
     tabEnableFloat: false,
     tabEnableClose: false,
+    tabEnableRename: false,
   },
   borders: [],
   layout: {
