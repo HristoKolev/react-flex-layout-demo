@@ -1,54 +1,51 @@
-import { memo, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import { IJsonModel, Layout, Model, TabNode } from 'flexlayout-react';
 
 import 'flexlayout-react/style/dark.css';
 
-const RenderCounter = (): JSX.Element => {
+const RenderCounter = ({ name }: { name: string }): JSX.Element => {
   const countRef = useRef(0);
   countRef.current += 1;
-  return <span>Render Count - {countRef.current}</span>;
+  return (
+    <span>
+      {name} Render Count - {countRef.current}
+    </span>
+  );
 };
 
-const App1 = memo(
-  (): JSX.Element => (
-    <div>
-      App 1 | <RenderCounter />
-    </div>
-  )
-);
+const useLogMounting = (name: string) => {
+  useEffect(() => {
+    console.log('mount ' + name);
+    return () => {
+      console.log('unmount ' + name);
+    };
+  }, [name]);
+};
 
-const App2 = memo(
-  (): JSX.Element => (
-    <div>
-      App 2 | <RenderCounter />
-    </div>
-  )
-);
+const App1 = memo((): JSX.Element => {
+  useLogMounting('App1');
+  return <RenderCounter name="App 1" />;
+});
 
-const App3 = memo(
-  (): JSX.Element => (
-    <div>
-      App 3 | <RenderCounter />
-    </div>
-  )
-);
+const App2 = memo((): JSX.Element => {
+  useLogMounting('App2');
+  return <RenderCounter name="App 2" />;
+});
 
-const App4 = memo(
-  (): JSX.Element => (
-    <div>
-      {' '}
-      App 4 | <RenderCounter />{' '}
-    </div>
-  )
-);
+const App3 = memo((): JSX.Element => {
+  useLogMounting('App3');
+  return <RenderCounter name="App 3" />;
+});
 
-const App5 = memo(
-  (): JSX.Element => (
-    <div>
-      App 5 | <RenderCounter />
-    </div>
-  )
-);
+const App4 = memo((): JSX.Element => {
+  useLogMounting('App4');
+  return <RenderCounter name="App 4" />;
+});
+
+const App5 = memo((): JSX.Element => {
+  useLogMounting('App5');
+  return <RenderCounter name="App 5" />;
+});
 
 const modelJson: IJsonModel = {
   global: {
@@ -119,5 +116,22 @@ const createComponent = (node: TabNode) => {
 };
 
 export const App = (): JSX.Element => (
-  <Layout model={model} factory={createComponent} />
+  <Layout
+    model={model}
+    factory={createComponent}
+    onRenderTabSet={(tabSetNode, renderValues) => {
+      console.log(
+        'onRenderTabSet',
+        'tabSetNode',
+        tabSetNode,
+        'renderValues',
+        renderValues
+      );
+      renderValues.buttons.push(<div key="laina">123</div>);
+    }}
+    onRenderTab={(node, renderValues) => {
+      console.log('onRenderTab', 'node', node, 'renderValues', renderValues);
+      renderValues.content = <div>{node.getName()} - 123</div>;
+    }}
+  />
 );
