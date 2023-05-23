@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BorderNode,
   IJsonModel,
@@ -57,6 +57,15 @@ const App5 = memo((): JSX.Element => {
 });
 
 export const App = (): JSX.Element => {
+  const [includeApp4, setIncludeApp4] = useState<boolean>();
+
+  useEffect(() => {
+    const handle = setInterval(() => {
+      setIncludeApp4((x) => !x);
+    }, 1000);
+    return () => clearInterval(handle);
+  }, []);
+
   const model = useMemo(() => {
     const modelJson: IJsonModel = {
       global: {
@@ -86,11 +95,15 @@ export const App = (): JSX.Element => {
                 name: 'App 3',
                 component: 'app-3',
               },
-              {
-                type: 'tab',
-                name: 'App 4',
-                component: 'app-4',
-              },
+              ...(includeApp4
+                ? [
+                    {
+                      type: 'tab',
+                      name: 'App 4',
+                      component: 'app-4',
+                    },
+                  ]
+                : []),
               {
                 type: 'tab',
                 name: 'App 5',
@@ -103,7 +116,7 @@ export const App = (): JSX.Element => {
     };
 
     return Model.fromJson(modelJson);
-  }, []);
+  }, [includeApp4]);
 
   const createComponent = useCallback((node: TabNode) => {
     switch (node.getComponent()) {
