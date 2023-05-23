@@ -1,5 +1,14 @@
-import { memo, useEffect, useRef } from 'react';
-import { IJsonModel, Layout, Model, TabNode } from 'flexlayout-react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+  BorderNode,
+  IJsonModel,
+  ITabRenderValues,
+  ITabSetRenderValues,
+  Layout,
+  Model,
+  TabNode,
+  TabSetNode,
+} from 'flexlayout-react';
 
 import 'flexlayout-react/style/dark.css';
 
@@ -47,79 +56,80 @@ const App5 = memo((): JSX.Element => {
   return <RenderCounter name="App 5" />;
 });
 
-const modelJson: IJsonModel = {
-  global: {
-    tabEnableFloat: false,
-    tabEnableClose: false,
-    tabEnableRename: false,
-  },
-  borders: [],
-  layout: {
-    type: 'row',
-    weight: 100, // ???
-    children: [
-      {
-        type: 'tabset',
-        weight: 50, // ???
+export const App = (): JSX.Element => {
+  const model = useMemo(() => {
+    const modelJson: IJsonModel = {
+      global: {
+        tabEnableFloat: false,
+        tabEnableClose: false,
+        tabEnableRename: false,
+      },
+      borders: [],
+      layout: {
+        type: 'row',
         children: [
           {
-            type: 'tab',
-            name: 'App 1',
-            component: 'app-1',
-          },
-          {
-            type: 'tab',
-            name: 'App 2',
-            component: 'app-2',
-          },
-          {
-            type: 'tab',
-            name: 'App 3',
-            component: 'app-3',
-          },
-          {
-            type: 'tab',
-            name: 'App 4',
-            component: 'app-4',
-          },
-          {
-            type: 'tab',
-            name: 'App 5',
-            component: 'app-5',
+            type: 'tabset',
+            children: [
+              {
+                type: 'tab',
+                name: 'App 1',
+                component: 'app-1',
+              },
+              {
+                type: 'tab',
+                name: 'App 2',
+                component: 'app-2',
+              },
+              {
+                type: 'tab',
+                name: 'App 3',
+                component: 'app-3',
+              },
+              {
+                type: 'tab',
+                name: 'App 4',
+                component: 'app-4',
+              },
+              {
+                type: 'tab',
+                name: 'App 5',
+                component: 'app-5',
+              },
+            ],
           },
         ],
       },
-    ],
-  },
-};
+    };
 
-const model = Model.fromJson(modelJson);
+    return Model.fromJson(modelJson);
+  }, []);
 
-const createComponent = (node: TabNode) => {
-  switch (node.getComponent()) {
-    case 'app-1': {
-      return <App1 />;
+  const createComponent = useCallback((node: TabNode) => {
+    switch (node.getComponent()) {
+      case 'app-1': {
+        return <App1 />;
+      }
+      case 'app-2': {
+        return <App2 />;
+      }
+      case 'app-3': {
+        return <App3 />;
+      }
+      case 'app-4': {
+        return <App4 />;
+      }
+      case 'app-5': {
+        return <App5 />;
+      }
     }
-    case 'app-2': {
-      return <App2 />;
-    }
-    case 'app-3': {
-      return <App3 />;
-    }
-    case 'app-4': {
-      return <App4 />;
-    }
-    case 'app-5': {
-      return <App5 />;
-    }
-  }
-};
+  }, []);
 
-export const App = (): JSX.Element => (
-  <Layout
-    model={model}
-    factory={createComponent}
-    onRenderTabSet={(tabSetNode, renderValues) => {
+  const handleOnRenderTabSet = useCallback(
+    (
+      tabSetNode: TabSetNode | BorderNode,
+      renderValues: ITabSetRenderValues
+    ) => {
       console.log(
         'onRenderTabSet',
         'tabSetNode',
@@ -128,10 +138,24 @@ export const App = (): JSX.Element => (
         renderValues
       );
       renderValues.buttons.push(<div key="laina">123</div>);
-    }}
-    onRenderTab={(node, renderValues) => {
+    },
+    []
+  );
+
+  const handleOnRenderTab = useCallback(
+    (node: TabNode, renderValues: ITabRenderValues) => {
       console.log('onRenderTab', 'node', node, 'renderValues', renderValues);
       renderValues.content = <div>{node.getName()} - 123</div>;
-    }}
-  />
-);
+    },
+    []
+  );
+
+  return (
+    <Layout
+      model={model}
+      factory={createComponent}
+      onRenderTabSet={handleOnRenderTabSet}
+      onRenderTab={handleOnRenderTab}
+    />
+  );
+};
