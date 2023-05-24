@@ -1,5 +1,6 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
+  Actions,
   BorderNode,
   IJsonModel,
   ITabRenderValues,
@@ -57,21 +58,13 @@ const App5 = memo((): JSX.Element => {
 });
 
 export const App = (): JSX.Element => {
-  const [includeApp4, setIncludeApp4] = useState<boolean>();
-
-  useEffect(() => {
-    const handle = setInterval(() => {
-      setIncludeApp4((x) => !x);
-    }, 1000);
-    return () => clearInterval(handle);
-  }, []);
-
   const model = useMemo(() => {
     const modelJson: IJsonModel = {
       global: {
         tabEnableFloat: false,
         tabEnableClose: false,
         tabEnableRename: false,
+        tabSetEnableMaximize: false,
       },
       borders: [],
       layout: {
@@ -95,15 +88,6 @@ export const App = (): JSX.Element => {
                 name: 'App 3',
                 component: 'app-3',
               },
-              ...(includeApp4
-                ? [
-                    {
-                      type: 'tab',
-                      name: 'App 4',
-                      component: 'app-4',
-                    },
-                  ]
-                : []),
               {
                 type: 'tab',
                 name: 'App 5',
@@ -116,7 +100,22 @@ export const App = (): JSX.Element => {
     };
 
     return Model.fromJson(modelJson);
-  }, [includeApp4]);
+  }, []);
+
+  useEffect(() => {
+    const handle = setInterval(() => {
+      model.visitNodes((node) => {
+        if (node.getType() === 'tab') {
+          const tabNode = node as TabNode;
+          if (tabNode.getComponent() === 'app-3') {
+            model.doAction(Actions.selectTab(tabNode.getId()));
+          }
+        }
+      });
+    }, 1000);
+
+    return () => clearInterval(handle);
+  }, [model]);
 
   const createComponent = useCallback((node: TabNode) => {
     switch (node.getComponent()) {
@@ -158,7 +157,13 @@ export const App = (): JSX.Element => {
   const handleOnRenderTab = useCallback(
     (node: TabNode, renderValues: ITabRenderValues) => {
       console.log('onRenderTab', 'node', node, 'renderValues', renderValues);
-      renderValues.content = <div>{node.getName()} - 123</div>;
+
+      renderValues.content = (
+        <div>
+          {node.isVisible() ? 'Visible' : ''}
+          {node.getComponent()} - 123
+        </div>
+      );
     },
     []
   );
