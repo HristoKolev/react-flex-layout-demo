@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
+  Action,
   Actions,
   BorderNode,
   IJsonModel,
@@ -108,7 +109,9 @@ export const App = (): JSX.Element => {
         if (node.getType() === 'tab') {
           const tabNode = node as TabNode;
           if (tabNode.getComponent() === 'app-3') {
-            model.doAction(Actions.selectTab(tabNode.getId()));
+            if (!tabNode.isVisible()) {
+              model.doAction(Actions.selectTab(tabNode.getId()));
+            }
           }
         }
       });
@@ -168,12 +171,22 @@ export const App = (): JSX.Element => {
     []
   );
 
+  const handleOnModelChange = useCallback((model: Model, action: Action) => {
+    if (action.type === Actions.SELECT_TAB) {
+      const nodeId = action.data.tabNode as string;
+      const selectedNode = model.getNodeById(nodeId) as TabNode;
+
+      console.log('Selection changed ', selectedNode.getComponent());
+    }
+  }, []);
+
   return (
     <Layout
       model={model}
       factory={createComponent}
       onRenderTabSet={handleOnRenderTabSet}
       onRenderTab={handleOnRenderTab}
+      onModelChange={handleOnModelChange}
     />
   );
 };
