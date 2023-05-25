@@ -1,9 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Action,
   Actions,
   BorderNode,
   IJsonModel,
+  IJsonRowNode,
+  IJsonTabNode,
+  IJsonTabSetNode,
   ITabRenderValues,
   ITabSetRenderValues,
   Layout,
@@ -58,9 +61,19 @@ const App5 = memo((): JSX.Element => {
   return <RenderCounter name="App 5" />;
 });
 
+const savedLayoutKey = 'flexlayout-model';
+
+const app4Config: IJsonTabNode = {
+  type: 'tab',
+  name: 'App 4',
+  component: 'app-4',
+};
+
 export const App = (): JSX.Element => {
-  const model = useMemo(() => {
-    const modelJson: IJsonModel = {
+  const [showApp4, setShowApp4] = useState<boolean>(false);
+
+  const defaultJsonModel = useMemo<IJsonModel>(
+    () => ({
       global: {
         tabEnableFloat: false,
         tabEnableClose: false,
@@ -89,6 +102,7 @@ export const App = (): JSX.Element => {
                 name: 'App 3',
                 component: 'app-3',
               },
+              ...(showApp4 ? [app4Config] : []),
               {
                 type: 'tab',
                 name: 'App 5',
@@ -98,10 +112,99 @@ export const App = (): JSX.Element => {
           },
         ],
       },
+    }),
+    [showApp4]
+  );
+
+  const jsonModel = useMemo(() => {
+    const savedJsonModelJson = localStorage.getItem(savedLayoutKey);
+
+    if (!savedJsonModelJson) {
+      return defaultJsonModel;
+    }
+
+    const savedJsonModel = JSON.parse(savedJsonModelJson) as IJsonModel;
+
+    const addApp4 = (root: IJsonRowNode) => {
+      const tabNodes: IJsonTabNode[] = [];
+      let firstTabset: IJsonTabSetNode | undefined;
+
+      const walk = (
+        nodeJson: IJsonRowNode | IJsonTabSetNode | IJsonTabNode
+      ) => {
+        if (nodeJson.type === 'tab') {
+          tabNodes.push(nodeJson);
+          return;
+        }
+
+        if (nodeJson.type === 'tabset' && !firstTabset) {
+          firstTabset = nodeJson as IJsonTabSetNode;
+        }
+
+        if (nodeJson.type === 'row' || nodeJson.type === 'tabset') {
+          const rowOrTabsetNodeJson = nodeJson as
+            | IJsonRowNode
+            | IJsonTabSetNode;
+          for (const childNode of rowOrTabsetNodeJson.children) {
+            walk(childNode);
+          }
+        }
+      };
+
+      walk(root);
+
+      if (
+        !tabNodes.find((x) => x.component === app4Config.component) &&
+        firstTabset
+      ) {
+        firstTabset.children.push(app4Config);
+      }
     };
 
-    return Model.fromJson(modelJson);
-  }, []);
+    const removeApp4 = (root: IJsonRowNode) => {
+      const walk = (
+        nodeJson: IJsonRowNode | IJsonTabSetNode | IJsonTabNode
+      ) => {
+        if (nodeJson.type === 'tab') {
+          return;
+        }
+
+        if (nodeJson.type === 'row') {
+          const rowNodeJson = nodeJson as IJsonRowNode;
+
+          for (const child of rowNodeJson.children) {
+            walk(child);
+          }
+        }
+
+        if (nodeJson.type === 'tabset') {
+          const tabsetNodeJson = nodeJson as IJsonTabSetNode;
+          const newTabs = tabsetNodeJson.children.filter(
+            (x) => x.component !== app4Config.component
+          );
+
+          if (newTabs.length !== tabsetNodeJson.children.length) {
+            tabsetNodeJson.children = newTabs;
+            tabsetNodeJson.selected = 0;
+          }
+        }
+      };
+
+      walk(root);
+    };
+
+    if (showApp4) {
+      addApp4(savedJsonModel.layout);
+    } else {
+      removeApp4(savedJsonModel.layout);
+    }
+
+    return savedJsonModel;
+  }, [defaultJsonModel, showApp4]);
+
+  const model = useMemo(() => Model.fromJson(jsonModel), [jsonModel]);
+
+  Reflect.set(window, 'model', model);
 
   useEffect(() => {
     const handle = setInterval(() => {
@@ -142,16 +245,9 @@ export const App = (): JSX.Element => {
 
   const handleOnRenderTabSet = useCallback(
     (
-      tabSetNode: TabSetNode | BorderNode,
+      _tabSetNode: TabSetNode | BorderNode,
       renderValues: ITabSetRenderValues
     ) => {
-      console.log(
-        'onRenderTabSet',
-        'tabSetNode',
-        tabSetNode,
-        'renderValues',
-        renderValues
-      );
       renderValues.buttons.push(<div key="laina">123</div>);
     },
     []
@@ -159,11 +255,9 @@ export const App = (): JSX.Element => {
 
   const handleOnRenderTab = useCallback(
     (node: TabNode, renderValues: ITabRenderValues) => {
-      console.log('onRenderTab', 'node', node, 'renderValues', renderValues);
-
       renderValues.content = (
         <div>
-          {node.isVisible() ? 'Visible' : ''}
+          {node.isVisible() ? 'Visible ' : ''}
           {node.getComponent()} - 123
         </div>
       );
@@ -171,22 +265,65 @@ export const App = (): JSX.Element => {
     []
   );
 
-  const handleOnModelChange = useCallback((model: Model, action: Action) => {
-    if (action.type === Actions.SELECT_TAB) {
-      const nodeId = action.data.tabNode as string;
-      const selectedNode = model.getNodeById(nodeId) as TabNode;
+  const visibleTabsRef = useRef<string[]>([]);
 
-      console.log('Selection changed ', selectedNode.getComponent());
-    }
+  const handleOnModelChange = useCallback((model: Model, action: Action) => {
+    setTimeout(() => {
+      if (action.type !== Actions.SET_ACTIVE_TABSET) {
+        localStorage.setItem(savedLayoutKey, JSON.stringify(model.toJson()));
+      }
+
+      const newVisibleTabs: string[] = [];
+      model.visitNodes((node) => {
+        if (node.getType() === 'tab') {
+          const tabNode = node as TabNode;
+          if (tabNode.isVisible()) {
+            newVisibleTabs.push(tabNode.getComponent() as string);
+          }
+        }
+      });
+
+      const oldVisibleTabs = [...visibleTabsRef.current];
+
+      if (newVisibleTabs.length !== oldVisibleTabs.length) {
+        visibleTabsRef.current = newVisibleTabs;
+        // Update context
+        console.log('Update context ', newVisibleTabs);
+        return;
+      }
+
+      newVisibleTabs.sort((a, b) => a.localeCompare(b));
+      oldVisibleTabs.sort((a, b) => a.localeCompare(b));
+
+      for (let i = 0; i < newVisibleTabs.length; i++) {
+        if (newVisibleTabs[i] !== oldVisibleTabs[i]) {
+          visibleTabsRef.current = newVisibleTabs;
+          // Update context
+          console.log('Update context ', newVisibleTabs);
+          return;
+        }
+      }
+    }, 0);
+  }, []);
+
+  const handleOnToggleShow4 = useCallback(() => {
+    setShowApp4((x) => !x);
   }, []);
 
   return (
-    <Layout
-      model={model}
-      factory={createComponent}
-      onRenderTabSet={handleOnRenderTabSet}
-      onRenderTab={handleOnRenderTab}
-      onModelChange={handleOnModelChange}
-    />
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div>
+        <button onClick={handleOnToggleShow4}>Toggle show 4</button>
+      </div>
+      <div style={{ position: 'relative', flex: ' 1 auto' }}>
+        <Layout
+          model={model}
+          factory={createComponent}
+          onRenderTabSet={handleOnRenderTabSet}
+          onRenderTab={handleOnRenderTab}
+          onModelChange={handleOnModelChange}
+        />
+      </div>
+    </div>
   );
 };
