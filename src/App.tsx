@@ -244,11 +244,14 @@ export const App = (): JSX.Element => {
   }, []);
 
   const handleOnRenderTabSet = useCallback(
-    (
-      _tabSetNode: TabSetNode | BorderNode,
-      renderValues: ITabSetRenderValues
-    ) => {
-      renderValues.buttons.push(<div key="laina">123</div>);
+    (node: TabSetNode | BorderNode, renderValues: ITabSetRenderValues) => {
+      if (node.getType() === 'tabset') {
+        const tabSetNode = node as TabSetNode;
+
+        if (tabSetNode.isActive()) {
+          renderValues.buttons.push(<div key="laina">123</div>);
+        }
+      }
     },
     []
   );
